@@ -5,6 +5,9 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddDbContext<LogiTrackContext>(options =>
+    options.UseSqlite("Data Source=logitrack.db"));
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
@@ -15,6 +18,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.MapControllers();
 
 var sampleItem = new InventoryItem
 {
