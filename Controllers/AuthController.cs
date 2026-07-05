@@ -14,15 +14,18 @@ namespace LogiTrack.Controllers
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
+        private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IConfiguration _configuration;
 
         public AuthController(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
+            RoleManager<IdentityRole> roleManager,
             IConfiguration configuration)
         {
             _userManager = userManager;
             _signInManager = signInManager;
+            _roleManager = roleManager;
             _configuration = configuration;
         }
 
@@ -34,7 +37,23 @@ namespace LogiTrack.Controllers
                 return BadRequest(ModelState);
             }
 
-            var user = new ApplicationUser { UserName = model.Email, Email = model.Email };
+            var roleName = string.IsNullOrWhiteSpace(model.Role) ? "Manager" : model.Role;
+
+            if (!await _roleManager.RoleExistsAsync(roleName))
+            {
+                var roleResult = await _roleManager.CreateAsync(new IdentityRole(roleName));
+                if (!roleResult.Succeeded)
+                {
+                    return BadRequest(roleResult.Errors);
+                }
+            }
+
+            var user = new ApplicationUser
+            {
+                UserName = model.Email,
+                Email = model.Email
+            };
+
             var result = await _userManager.CreateAsync(user, model.Password);
 
             if (!result.Succeeded)
@@ -42,7 +61,13 @@ namespace LogiTrack.Controllers
                 return BadRequest(result.Errors);
             }
 
-            return Ok(new { message = "User registered successfully." });
+            var addRoleResult = await _userManager.AddToRoleAsync(user, roleName);
+            if (!addRoleResult.Succeeded)
+            {
+                return BadRequest(addRoleResult.Errors);
+            }
+
+            return Ok(new { message = "User registered successfully.", role = roleName });
         }
 
         [HttpPost("login")]
@@ -65,17 +90,18 @@ namespace LogiTrack.Controllers
                 return Unauthorized(new { message = "Invalid email or password." });
             }
 
-            var token = GenerateJwtToken(user);
+            var token = await GenerateJwtToken(user);
             return Ok(new { token });
         }
 
-        private string GenerateJwtToken(ApplicationUser user)
+        private async Task<string> GenerateJwtToken(ApplicationUser user)
         {
             var jwtSettings = _configuration.GetSection("Jwt");
             var key = Encoding.UTF8.GetBytes(jwtSettings["Key"] ?? "SuperSecretKeyForLogiTrack123!");
             var issuer = jwtSettings["Issuer"];
             var audience = jwtSettings["Audience"];
             var durationInMinutes = int.Parse(jwtSettings["DurationInMinutes"] ?? "60");
+            var roles = await _userManager.GetRolesAsync(user);
 
             var claims = new List<Claim>
             {
@@ -83,6 +109,8 @@ namespace LogiTrack.Controllers
                 new(ClaimTypes.Name, user.UserName ?? user.Email ?? string.Empty),
                 new(ClaimTypes.Email, user.Email ?? string.Empty)
             };
+
+            claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
 
             var securityKey = new SymmetricSecurityKey(key);
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
@@ -102,6 +130,7 @@ namespace LogiTrack.Controllers
     {
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+        public string? Role { get; set; }
     }
 
     public class LoginModel
