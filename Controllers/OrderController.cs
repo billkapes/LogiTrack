@@ -25,11 +25,13 @@ namespace LogiTrack.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<Order>> GetOrder(int id)
         {
-            var order = await _context.Orders.FindAsync(id);
+            var order = await _context.Orders
+                .Include(o => o.Items)
+                .FirstOrDefaultAsync(o => o.OrderId == id);
 
             if (order == null)
             {
-                return NotFound();
+                return NotFound(new { message = $"Order with ID {id} was not found." });
             }
 
             return order;
@@ -82,7 +84,7 @@ namespace LogiTrack.Controllers
             var order = await _context.Orders.FindAsync(id);
             if (order == null)
             {
-                return NotFound();
+                return NotFound(new { message = $"Order with ID {id} was not found." });
             }
 
             _context.Orders.Remove(order);

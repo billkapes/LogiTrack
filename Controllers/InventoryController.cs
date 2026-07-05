@@ -30,7 +30,7 @@ namespace LogiTrack.Controllers
             var item = await _context.InventoryItems.FindAsync(id);
             if (item is null)
             {
-                return NotFound();
+                return NotFound(new { message = $"Inventory item with ID {id} was not found." });
             }
 
             return Ok(item);
