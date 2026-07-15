@@ -20,7 +20,9 @@ namespace LogiTrack.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Order>>> GetOrders()
         {
-            return await _context.Orders.ToListAsync();
+            return await _context.Orders
+                .AsNoTracking()
+                .ToListAsync();
         }
 
         // GET: api/Order/5
@@ -28,6 +30,7 @@ namespace LogiTrack.Controllers
         public async Task<ActionResult<Order>> GetOrder(int id)
         {
             var order = await _context.Orders
+                .AsNoTracking()
                 .Include(o => o.Items)
                 .FirstOrDefaultAsync(o => o.OrderId == id);
 
@@ -68,7 +71,7 @@ namespace LogiTrack.Controllers
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!OrderExists(id))
+                if (!await OrderExistsAsync(id))
                 {
                     return NotFound();
                 }
@@ -98,9 +101,11 @@ namespace LogiTrack.Controllers
             return NoContent();
         }
 
-        private bool OrderExists(int id)
+        private Task<bool> OrderExistsAsync(int id)
         {
-            return _context.Orders.Any(e => e.OrderId == id);
+            return _context.Orders
+                .AsNoTracking()
+                .AnyAsync(e => e.OrderId == id);
         }
     }
 }

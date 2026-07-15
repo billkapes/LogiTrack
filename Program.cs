@@ -12,6 +12,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddOpenApi();
 
+builder.Services.AddMemoryCache();
+
 var dbPath = Path.Combine(AppContext.BaseDirectory, "logitrack.db");
 builder.Services.AddDbContext<LogiTrackContext>(options =>
     options.UseSqlite($"Data Source={dbPath}"));
@@ -71,7 +73,7 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<LogiTrackContext>();
 
-    if (!context.InventoryItems.Any())
+    if (!await context.InventoryItems.AnyAsync())
     {
         context.InventoryItems.Add(new InventoryItem
         {
@@ -80,7 +82,7 @@ using (var scope = app.Services.CreateScope())
             Location = "Warehouse A"
         });
 
-        context.SaveChanges();
+        await context.SaveChangesAsync();
     }
 }
 
